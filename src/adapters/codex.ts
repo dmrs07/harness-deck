@@ -55,9 +55,12 @@ function pickWindow(windows: RawWindow[], duration: number): UsageWindow | undef
 
 function requestRateLimits(timeoutMs: number): Promise<RateLimitsResult> {
   return new Promise((resolve, reject) => {
+    // npm installs expose Codex as codex.cmd on Windows. Node cannot execute a
+    // .cmd shim directly unless it goes through the command processor.
     const child = spawn("codex", ["app-server"], {
       stdio: ["pipe", "pipe", "pipe"],
-      windowsHide: true
+      windowsHide: true,
+      shell: process.platform === "win32"
     });
 
     const lines = readline.createInterface({ input: child.stdout });
