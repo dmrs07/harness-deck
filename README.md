@@ -2,10 +2,12 @@
 
 Harness Deck puts the usage limits of the AI coding harnesses you use on an Elgato Stream Deck.
 
-The first MVP supports **OpenAI Codex** and **Claude Code** with three key actions:
+The plugin supports **OpenAI Codex** and **Claude Code** with these actions:
 
-- **Codex Usage** — 5-hour and 7-day usage windows.
-- **Claude Usage** — 5-hour and 7-day usage windows.
+- **Codex Usage** — 5-hour and 7-day usage windows on one key.
+- **Claude Usage** — 5-hour and 7-day usage windows on one key.
+- **Codex Usage Strip** — one segment of a Codex usage strip spanning multiple keys.
+- **Claude Usage Strip** — one segment of a Claude usage strip spanning multiple keys.
 - **AI Usage** — automatically displays whichever harness is currently closest to its limit.
 
 Press any key to force an immediate refresh. Otherwise the plugin refreshes once per minute using a single shared polling service.
@@ -56,7 +58,7 @@ For development:
 npm run watch
 ```
 
-Then add **Codex Usage**, **Claude Usage**, and/or **AI Usage** from the Harness Deck category in the Stream Deck app.
+Then add the desired Harness Deck actions from the Stream Deck app.
 
 ## Configure Claude Code
 
@@ -77,14 +79,14 @@ On macOS/Linux, use the corresponding absolute path.
 
 The rate-limit object is only available for eligible Claude.ai subscribers and appears after the first API response in a Claude Code session.
 
-## What the keys show
+## Bar direction
 
-Each provider key renders two usage bars. Each bar can be configured independently from the action's Property Inspector in the Stream Deck app:
+Each usage window can be configured independently from the action's Property Inspector:
 
 - **Completing** — starts empty and fills as quota is consumed. The number is `% used`.
 - **Depleting** — starts full and empties as quota is consumed. The number is `% remaining`.
 
-Existing actions default to **Completing**, which preserves the original behavior.
+Existing actions default to **Completing**.
 
 For example, with 42% of the 5-hour quota consumed:
 
@@ -93,9 +95,41 @@ Completing:  5H USED  42%  [████░░░░░░]
 Depleting:   5H LEFT  58%  [██████░░░░]
 ```
 
-The 5-hour and 7-day bars may use different modes on the same key. Settings are stored per action instance, so two Codex keys can also use different views.
+Danger color always follows **quota consumed**, regardless of bar direction: amber at 75% used and red at 90% used.
 
-Danger color always follows **quota consumed**, regardless of bar direction: amber at 75% used and red at 90% used. This means a depleting bar becomes short and red as available quota approaches zero.
+## Multi-key strips
+
+`Codex Usage Strip` and `Claude Usage Strip` let one usage visualization span **N adjacent keys**. Every key renders a crop of one shared virtual strip, using its physical Stream Deck column as the segment position.
+
+The default is designed for a 15-key Stream Deck:
+
+- `Start column = 0`
+- `N = 5`
+
+Place the same Strip action on all five keys in the first row and they form one continuous usage display.
+
+The layout deliberately gives the 5-hour session most of the vertical area:
+
+```text
+┌────────┬────────┬────────┬────────┬────────┐
+│        5H USED — large continuous bar      │
+│                    42%                     │
+│                              reset 2h 17m  │
+├────────┴────────┴────────┴────────┴────────┤
+│ 7D USED — thin weekly rail              68%│
+└────────────────────────────────────────────┘
+```
+
+At 42% completing usage on a five-key strip, the large 5-hour fill occupies exactly 2.1 keys worth of virtual width. In depleting mode the same usage renders 58% remaining, or 2.9 keys worth of fill. The weekly rail uses its own direction and percentage independently.
+
+The Property Inspector exposes:
+
+- **Keys in strip (N)** — 1 to 8 segments.
+- **Start column** — zero-based first column of the strip.
+- **5-hour direction** — completing or depleting.
+- **7-day direction** — completing or depleting.
+
+For the default five-key first-row layout no per-key adjustment is needed: every Strip instance starts with `N = 5` and column `0`. For a custom range, use the same Strip settings on each participating key.
 
 ## Architecture
 
@@ -105,19 +139,19 @@ src/
     codex.ts          # Codex app-server JSON-RPC
     claude.ts         # local Claude statusLine cache
   actions/
-    usage-actions.ts  # Stream Deck actions + per-key settings
+    usage-actions.ts  # Stream Deck actions + strip coordination
   config/
-    bar-settings.ts   # completing/depleting bar configuration
+    bar-settings.ts   # bar direction + strip geometry
   domain/
     usage.ts          # normalized usage model
   service/
     usage-service.ts  # shared 60s polling + subscriptions
   ui/
-    render.ts         # dynamic SVG key rendering
+    render.ts         # dynamic SVG + virtual multi-key strip rendering
   plugin.ts
 com.dmrs07.harness-deck.sdPlugin/
   ui/
-    bar-settings.html # offline Property Inspector
+    bar-settings.html # offline Property Inspector + strip preview
 scripts/
   claude-statusline-cache.cjs
 ```
@@ -128,7 +162,8 @@ The normalized model deliberately keeps harness-specific collection separate fro
 
 - Claude Code's documented status-line payload exposes the shared 5-hour and 7-day subscription windows, not every model-scoped limit visible in `/usage`.
 - Claude values update when Claude Code invokes its status line. If Claude Code is not running, the last snapshot remains visible and eventually becomes stale.
-- This MVP targets macOS and Windows, matching the Stream Deck desktop application.
+- Multi-key strips are horizontal and coordinate by physical key column; Strip actions are not intended for Stream Deck Multi Actions.
+- This plugin targets macOS and Windows, matching the Stream Deck desktop application.
 
 ## License
 
