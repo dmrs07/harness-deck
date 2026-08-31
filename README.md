@@ -29,7 +29,7 @@ Claude Code exposes subscription rate limits to its documented `statusLine` comm
 
 `scripts/claude-statusline-cache.cjs` copies those values into `~/.harness-deck/claude-usage.json`. The Stream Deck plugin reads that local cache, so it does not use private APIs, credentials, or extra Claude requests.
 
-The Claude action shows **STALE** when the last cache update is older than 15 minutes.
+Claude freshness is tracked independently for the 5-hour and 7-day windows. A retained window expires after 15 minutes without a fresh value instead of being kept alive by updates to the other window.
 
 ## Requirements
 
@@ -79,15 +79,23 @@ The rate-limit object is only available for eligible Claude.ai subscribers and a
 
 ## What the keys show
 
-Each provider key renders two usage bars:
+Each provider key renders two usage bars. Each bar can be configured independently from the action's Property Inspector in the Stream Deck app:
+
+- **Completing** — starts empty and fills as quota is consumed. The number is `% used`.
+- **Depleting** — starts full and empties as quota is consumed. The number is `% remaining`.
+
+Existing actions default to **Completing**, which preserves the original behavior.
+
+For example, with 42% of the 5-hour quota consumed:
 
 ```text
-CODEX
-5H  42%   reset 2h
-7D  67%   reset 4d
+Completing:  5H USED  42%  [████░░░░░░]
+Depleting:   5H LEFT  58%  [██████░░░░]
 ```
 
-The percentage means **quota consumed**, matching the source APIs. Bars turn amber at 75% and red at 90%.
+The 5-hour and 7-day bars may use different modes on the same key. Settings are stored per action instance, so two Codex keys can also use different views.
+
+Danger color always follows **quota consumed**, regardless of bar direction: amber at 75% used and red at 90% used. This means a depleting bar becomes short and red as available quota approaches zero.
 
 ## Architecture
 
@@ -97,7 +105,9 @@ src/
     codex.ts          # Codex app-server JSON-RPC
     claude.ts         # local Claude statusLine cache
   actions/
-    usage-actions.ts  # Stream Deck actions
+    usage-actions.ts  # Stream Deck actions + per-key settings
+  config/
+    bar-settings.ts   # completing/depleting bar configuration
   domain/
     usage.ts          # normalized usage model
   service/
@@ -105,6 +115,9 @@ src/
   ui/
     render.ts         # dynamic SVG key rendering
   plugin.ts
+com.dmrs07.harness-deck.sdPlugin/
+  ui/
+    bar-settings.html # offline Property Inspector
 scripts/
   claude-statusline-cache.cjs
 ```
