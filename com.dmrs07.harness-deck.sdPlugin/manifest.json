@@ -2,7 +2,7 @@
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "UUID": "com.dmrs07.harness-deck",
   "Name": "Harness Deck",
-  "Version": "0.1.0.0",
+  "Version": "0.2.0.0",
   "Author": "Daniel Moraes",
   "Description": "Codex and Claude Code usage limits at a glance.",
   "Category": "Harness Deck",
@@ -32,6 +32,7 @@
       "Name": "Codex Usage",
       "Tooltip": "Show Codex 5-hour and weekly usage",
       "Icon": "imgs/codex",
+      "PropertyInspectorPath": "ui/bar-settings.html",
       "Controllers": ["Keypad"],
       "States": [{ "Image": "imgs/codex" }]
     },
@@ -40,6 +41,25 @@
       "Name": "Claude Usage",
       "Tooltip": "Show Claude Code 5-hour and weekly usage",
       "Icon": "imgs/claude",
+      "PropertyInspectorPath": "ui/bar-settings.html",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/claude" }]
+    },
+    {
+      "UUID": "com.dmrs07.harness-deck.codex-strip",
+      "Name": "Codex Usage Strip",
+      "Tooltip": "Render one segment of a Codex usage bar spanning multiple keys",
+      "Icon": "imgs/codex",
+      "PropertyInspectorPath": "ui/bar-settings.html",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/codex" }]
+    },
+    {
+      "UUID": "com.dmrs07.harness-deck.claude-strip",
+      "Name": "Claude Usage Strip",
+      "Tooltip": "Render one segment of a Claude usage bar spanning multiple keys",
+      "Icon": "imgs/claude",
+      "PropertyInspectorPath": "ui/bar-settings.html",
       "Controllers": ["Keypad"],
       "States": [{ "Image": "imgs/claude" }]
     },
@@ -48,6 +68,7 @@
       "Name": "AI Usage",
       "Tooltip": "Show the most constrained AI harness",
       "Icon": "imgs/plugin",
+      "PropertyInspectorPath": "ui/bar-settings.html",
       "Controllers": ["Keypad"],
       "States": [{ "Image": "imgs/plugin" }]
     }
