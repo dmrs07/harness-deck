@@ -108,7 +108,7 @@ The default is designed for a 15-key Stream Deck:
 
 Place the same Strip action on all five keys in the first row and they form one continuous usage display.
 
-The layout deliberately gives the 5-hour session most of the vertical area:
+The layout deliberately gives the 5-hour session almost the entire key height, while the weekly window is a thin rail pinned to the bottom:
 
 ```text
 ┌────────┬────────┬────────┬────────┬────────┐
