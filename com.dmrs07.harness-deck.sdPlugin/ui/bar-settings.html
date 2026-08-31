@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Harness Deck bar settings</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #2b2b2b;
+      color: #e8e8e8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 14px; font-size: 12px; }
+    .field { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 6px; color: #cfcfcf; font-weight: 600; }
+    select {
+      width: 100%;
+      height: 30px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background: #1f1f1f;
+      color: #f4f4f4;
+      padding: 0 8px;
+    }
+    .hint { margin-top: 5px; color: #9b9b9b; line-height: 1.35; }
+    .preview-title { margin: 18px 0 8px; color: #cfcfcf; font-weight: 600; }
+    .preview {
+      border: 1px solid #484848;
+      border-radius: 8px;
+      background: #202124;
+      padding: 10px;
+    }
+    .row + .row { margin-top: 11px; }
+    .row-head { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px; }
+    .track { height: 8px; border-radius: 4px; overflow: hidden; background: #3a3d44; }
+    .fill { height: 100%; border-radius: inherit; background: #76e6a6; transition: width 120ms ease; }
+    .legend { margin-top: 12px; color: #8e8e8e; font-size: 10px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="field">
+    <label for="fiveHourMode">5-hour bar</label>
+    <select id="fiveHourMode" data-setting="fiveHourMode">
+      <option value="completing">Completing — fills as quota is used</option>
+      <option value="depleting">Depleting — empties as quota is used</option>
+    </select>
+    <div class="hint">Completing shows % used. Depleting shows % remaining.</div>
+  </div>
+
+  <div class="field">
+    <label for="sevenDayMode">7-day bar</label>
+    <select id="sevenDayMode" data-setting="sevenDayMode">
+      <option value="completing">Completing — fills as quota is used</option>
+      <option value="depleting">Depleting — empties as quota is used</option>
+    </select>
+    <div class="hint">Configured independently from the 5-hour window.</div>
+  </div>
+
+  <div class="preview-title">Preview</div>
+  <div class="preview">
+    <div class="row" data-preview="fiveHourMode" data-used="42">
+      <div class="row-head"><span>5H <span class="qualifier"></span></span><strong class="value"></strong></div>
+      <div class="track"><div class="fill"></div></div>
+    </div>
+    <div class="row" data-preview="sevenDayMode" data-used="68">
+      <div class="row-head"><span>7D <span class="qualifier"></span></span><strong class="value"></strong></div>
+      <div class="track"><div class="fill"></div></div>
+    </div>
+  </div>
+  <div class="legend">The danger color still follows quota consumed, so a nearly empty depleting bar becomes amber/red near the limit.</div>
+
+  <script>
+    let socket;
+    let action;
+    let context;
+    let settings = {};
+
+    const normalizeMode = (value) => value === "depleting" ? "depleting" : "completing";
+
+    function applySettings(next) {
+      settings = { ...next };
+      document.querySelectorAll("[data-setting]").forEach((element) => {
+        const key = element.dataset.setting;
+        element.value = normalizeMode(settings[key]);
+      });
+      renderPreview();
+    }
+
+    function persist(key, value) {
+      settings = { ...settings, [key]: normalizeMode(value) };
+      renderPreview();
+      if (!socket || socket.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify({
+        event: "setSettings",
+        action,
+        context,
+        payload: settings
+      }));
+    }
+
+    function renderPreview() {
+      document.querySelectorAll("[data-preview]").forEach((row) => {
+        const mode = normalizeMode(settings[row.dataset.preview]);
+        const used = Number(row.dataset.used);
+        const shown = mode === "depleting" ? 100 - used : used;
+        row.querySelector(".qualifier").textContent = mode === "depleting" ? "LEFT" : "USED";
+        row.querySelector(".value").textContent = `${Math.round(shown)}%`;
+        row.querySelector(".fill").style.width = `${shown}%`;
+      });
+    }
+
+    document.querySelectorAll("[data-setting]").forEach((element) => {
+      element.addEventListener("change", () => persist(element.dataset.setting, element.value));
+    });
+
+    window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, _info, actionInfo) => {
+      const initial = JSON.parse(actionInfo || "{}");
+      action = initial.action;
+      context = initial.context;
+      applySettings(initial.payload?.settings || {});
+
+      socket = new WebSocket(`ws://127.0.0.1:${port}`);
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ event: registerEvent, uuid }));
+      };
+      socket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.event === "didReceiveSettings" && (!message.context || message.context === context)) {
+          applySettings(message.payload?.settings || {});
+        }
+      };
+    };
+
+    applySettings({});
+  </script>
+</body>
+</html>
