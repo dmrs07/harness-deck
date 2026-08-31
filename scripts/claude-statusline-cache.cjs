@@ -9,18 +9,30 @@ process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw || "{}");
     const rateLimits = input.rate_limits || {};
-    const payload = {
-      updatedAt: Date.now(),
+    const dir = path.join(os.homedir(), ".harness-deck");
+    const file = path.join(dir, "claude-usage.json");
+
+    const incoming = {
       fiveHour: normalize(rateLimits.five_hour),
       sevenDay: normalize(rateLimits.seven_day)
     };
 
-    const dir = path.join(os.homedir(), ".harness-deck");
-    const file = path.join(dir, "claude-usage.json");
-    const tmp = `${file}.tmp`;
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(tmp, JSON.stringify(payload));
-    fs.renameSync(tmp, file);
+    const previous = readCache(file);
+    const hasIncomingLimits = Boolean(incoming.fiveHour || incoming.sevenDay);
+    const payload = hasIncomingLimits
+      ? {
+          updatedAt: Date.now(),
+          fiveHour: incoming.fiveHour || previous.fiveHour,
+          sevenDay: incoming.sevenDay || previous.sevenDay
+        }
+      : previous;
+
+    if (hasIncomingLimits) {
+      const tmp = `${file}.tmp`;
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(tmp, JSON.stringify(payload));
+      fs.renameSync(tmp, file);
+    }
 
     const model = input.model && (input.model.display_name || input.model.id) || "Claude";
     const segments = [
@@ -33,11 +45,32 @@ process.stdin.on("end", () => {
   }
 });
 
+function readCache(file) {
+  try {
+    const value = JSON.parse(fs.readFileSync(file, "utf8"));
+    return {
+      updatedAt: typeof value.updatedAt === "number" ? value.updatedAt : 0,
+      fiveHour: normalizeCached(value.fiveHour),
+      sevenDay: normalizeCached(value.sevenDay)
+    };
+  } catch {
+    return { updatedAt: 0 };
+  }
+}
+
 function normalize(value) {
   if (!value || typeof value.used_percentage !== "number") return undefined;
   return {
     usedPercent: Math.max(0, Math.min(100, value.used_percentage)),
     resetsAt: typeof value.resets_at === "number" ? value.resets_at : undefined
+  };
+}
+
+function normalizeCached(value) {
+  if (!value || typeof value.usedPercent !== "number") return undefined;
+  return {
+    usedPercent: Math.max(0, Math.min(100, value.usedPercent)),
+    resetsAt: typeof value.resetsAt === "number" ? value.resetsAt : undefined
   };
 }
 
