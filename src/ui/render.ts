@@ -1,6 +1,7 @@
 import type { BarMode, ResolvedStripSettings, ResolvedUsageBarSettings } from "../config/bar-settings.js";
 import { DEFAULT_STRIP_SETTINGS, DEFAULT_USAGE_BAR_SETTINGS } from "../config/bar-settings.js";
 import type { Provider, UsageSnapshot, UsageWindow } from "../domain/usage.js";
+import { getTheme, providerTheme, riskColor, textureOverlay, themeDefs, type Theme } from "./themes.js";
 
 const PROVIDER_LABEL: Record<Provider, string> = {
   codex: "CODEX",
@@ -18,13 +19,13 @@ export function renderProvider(
   settings: ResolvedUsageBarSettings = DEFAULT_USAGE_BAR_SETTINGS
 ): string {
   const label = PROVIDER_LABEL[provider];
-  const accent = PROVIDER_ACCENT[provider];
+  const theme = providerTheme(getTheme(settings.theme), PROVIDER_ACCENT[provider]);
 
-  if (!snapshot) return svgDataUrl(shell(label, accent, "Loading…"));
-  if (snapshot.error) return svgDataUrl(shell(label, "#ff7b7b", "NO DATA", shortError(snapshot.error)));
+  if (!snapshot) return svgDataUrl(shell(label, theme, "Loading…"));
+  if (snapshot.error) return svgDataUrl(shell(label, { ...theme, primary: theme.danger }, "NO DATA", shortError(snapshot.error)));
 
   const stale = snapshot.stale ? "STALE" : undefined;
-  return svgDataUrl(usageSvg(label, accent, snapshot.fiveHour, snapshot.sevenDay, settings, stale));
+  return svgDataUrl(usageSvg(label, theme, snapshot.fiveHour, snapshot.sevenDay, settings, stale));
 }
 
 export function renderCombined(
@@ -33,7 +34,8 @@ export function renderCombined(
   settings: ResolvedUsageBarSettings = DEFAULT_USAGE_BAR_SETTINGS
 ): string {
   const candidates = [codex, claude].filter((item): item is UsageSnapshot => Boolean(item && !item.error));
-  if (!candidates.length) return svgDataUrl(shell("AI USAGE", "#8fb5ff", "NO DATA"));
+  const fallbackTheme = getTheme(settings.theme);
+  if (!candidates.length) return svgDataUrl(shell("AI USAGE", fallbackTheme, "NO DATA"));
 
   const scored = candidates.map((snapshot) => ({
     snapshot,
@@ -42,10 +44,11 @@ export function renderCombined(
   scored.sort((a, b) => b.score - a.score);
 
   const worst = scored[0].snapshot;
+  const theme = providerTheme(getTheme(settings.theme), PROVIDER_ACCENT[worst.provider]);
   return svgDataUrl(
     usageSvg(
       `AI · ${PROVIDER_LABEL[worst.provider]}`,
-      PROVIDER_ACCENT[worst.provider],
+      theme,
       worst.fiveHour,
       worst.sevenDay,
       settings,
@@ -61,19 +64,19 @@ export function renderStripSegment(
   settings: ResolvedStripSettings = DEFAULT_STRIP_SETTINGS
 ): string {
   const label = PROVIDER_LABEL[provider];
-  const accent = PROVIDER_ACCENT[provider];
+  const theme = providerTheme(getTheme(settings.theme), PROVIDER_ACCENT[provider]);
   const segmentIndex = column - settings.stripStartColumn;
 
   if (segmentIndex < 0 || segmentIndex >= settings.stripSegments) {
-    return svgDataUrl(shell("USAGE STRIP", "#ffca66", "OUTSIDE", `cols ${settings.stripStartColumn + 1}-${settings.stripStartColumn + settings.stripSegments}`));
+    return svgDataUrl(shell("USAGE STRIP", { ...theme, primary: theme.warning }, "OUTSIDE", `cols ${settings.stripStartColumn + 1}-${settings.stripStartColumn + settings.stripSegments}`));
   }
-  if (!snapshot) return svgDataUrl(stripShellSegment(label, accent, segmentIndex, settings.stripSegments, "Loading…"));
-  if (snapshot.error) return svgDataUrl(stripShellSegment(label, "#ff7b7b", segmentIndex, settings.stripSegments, "NO DATA"));
+  if (!snapshot) return svgDataUrl(stripShellSegment(label, theme, segmentIndex, settings.stripSegments, "Loading…"));
+  if (snapshot.error) return svgDataUrl(stripShellSegment(label, { ...theme, primary: theme.danger }, segmentIndex, settings.stripSegments, "NO DATA"));
 
   return svgDataUrl(
     stripSvg(
       label,
-      accent,
+      theme,
       snapshot.fiveHour,
       snapshot.sevenDay,
       settings,
@@ -85,24 +88,27 @@ export function renderStripSegment(
 
 function usageSvg(
   label: string,
-  accent: string,
+  theme: Theme,
   fiveHour: UsageWindow | undefined,
   sevenDay: UsageWindow | undefined,
   settings: ResolvedUsageBarSettings,
   badge?: string
 ): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
-  <rect width="144" height="144" rx="24" fill="#111318"/>
-  <text x="14" y="25" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#ffffff">${escapeXml(label)}</text>
-  ${badge ? `<text x="130" y="25" text-anchor="end" font-family="Arial,sans-serif" font-size="9" fill="#ffca66">${badge}</text>` : ""}
-  ${bar("5H", fiveHour, settings.fiveHourMode, 43, accent)}
-  ${bar("7D", sevenDay, settings.sevenDayMode, 90, accent)}
+  ${themeDefs(theme)}
+  <rect width="144" height="144" rx="${theme.radius}" fill="${theme.background}"/>
+  ${themeDecoration(theme, 144, 144)}
+  ${textureOverlay(theme, 0, 0, 144, 144, 0.1)}
+  <text x="14" y="25" font-family="${theme.font}" font-size="13" font-weight="700" fill="${theme.text}" ${textStroke(theme)}>${escapeXml(label)}</text>
+  ${badge ? `<text x="130" y="25" text-anchor="end" font-family="${theme.font}" font-size="9" font-weight="700" fill="${theme.badge}" ${textStroke(theme)}>${badge}</text>` : ""}
+  ${bar("5H", fiveHour, settings.fiveHourMode, 43, theme, "primary")}
+  ${bar("7D", sevenDay, settings.sevenDayMode, 90, theme, "secondary")}
 </svg>`;
 }
 
 function stripSvg(
   label: string,
-  accent: string,
+  theme: Theme,
   fiveHour: UsageWindow | undefined,
   sevenDay: UsageWindow | undefined,
   settings: ResolvedStripSettings,
@@ -112,39 +118,44 @@ function stripSvg(
   const keyWidth = 144;
   const totalWidth = settings.stripSegments * keyWidth;
   const offset = segmentIndex * keyWidth;
-  const five = stripMetric(fiveHour, settings.fiveHourMode, accent);
-  const weekly = stripMetric(sevenDay, settings.sevenDayMode, accent);
+  const five = stripMetric(fiveHour, settings.fiveHourMode, theme, "primary");
+  const weekly = stripMetric(sevenDay, settings.sevenDayMode, theme, "secondary");
   const primaryValueX = stripAnchorX(settings.stripSegments, keyWidth) - offset;
   const leftX = 16 - offset;
   const rightX = totalWidth - 16 - offset;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
-  <rect width="144" height="144" fill="#111318"/>
-  <rect width="144" height="119" fill="#292d35"/>
-  ${five.window ? `<rect x="${-offset}" y="0" width="${five.width * totalWidth}" height="119" fill="${five.color}" opacity="0.88"/>` : ""}
-  <rect y="123" width="144" height="21" fill="#30343d"/>
+  ${themeDefs(theme)}
+  <rect width="144" height="144" fill="${theme.background}"/>
+  <rect width="144" height="119" fill="${theme.surface}"/>
+  ${themeDecoration(theme, totalWidth, 119, offset)}
+  ${five.window ? `<rect x="${-offset}" y="0" width="${five.width * totalWidth}" height="119" fill="${five.color}" opacity="${theme.id === "e-ink" ? 1 : 0.88}"/>` : ""}
+  ${five.window ? textureOverlay(theme, -offset, 0, five.width * totalWidth, 119, 0.24) : textureOverlay(theme, -offset, 0, totalWidth, 119, 0.1)}
+  <rect y="123" width="144" height="21" fill="${theme.track}"/>
   ${weekly.window ? `<rect x="${-offset}" y="123" width="${weekly.width * totalWidth}" height="21" fill="${weekly.color}"/>` : ""}
-  <rect y="118" width="144" height="5" fill="#111318"/>
-  <text x="${leftX}" y="24" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#ffffff">${escapeXml(label)} · 5H ${five.qualifier}</text>
-  ${badge ? `<text x="${leftX}" y="42" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#ffca66">${badge}</text>` : ""}
-  <text x="${primaryValueX}" y="79" text-anchor="middle" font-family="Arial,sans-serif" font-size="34" font-weight="800" fill="#ffffff">${five.window ? `${five.value}%` : "—"}</text>
-  <text x="${rightX}" y="104" text-anchor="end" font-family="Arial,sans-serif" font-size="10" font-weight="700" fill="#ffffff">${five.window ? `reset ${formatReset(five.window.resetsAt)}` : "5h unavailable"}</text>
-  <text x="${leftX}" y="138" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#ffffff">7D ${weekly.qualifier}</text>
-  <text x="${rightX}" y="138" text-anchor="end" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#ffffff">${weekly.window ? `${weekly.value}% · ${formatReset(weekly.window.resetsAt)}` : "—"}</text>
+  <rect y="118" width="144" height="5" fill="${theme.divider}"/>
+  <text x="${leftX}" y="24" font-family="${theme.font}" font-size="12" font-weight="700" fill="${theme.text}" ${textStroke(theme)}>${escapeXml(label)} · 5H ${five.qualifier}</text>
+  ${badge ? `<text x="${leftX}" y="42" font-family="${theme.font}" font-size="9" font-weight="700" fill="${theme.badge}" ${textStroke(theme)}>${badge}</text>` : ""}
+  <text x="${primaryValueX}" y="79" text-anchor="middle" font-family="${theme.font}" font-size="34" font-weight="800" fill="${theme.text}" ${textStroke(theme, 4)}>${five.window ? `${five.value}%` : "—"}</text>
+  <text x="${rightX}" y="104" text-anchor="end" font-family="${theme.font}" font-size="10" font-weight="700" fill="${theme.text}" ${textStroke(theme)}>${five.window ? `reset ${formatReset(five.window.resetsAt)}` : "5h unavailable"}</text>
+  <text x="${leftX}" y="138" font-family="${theme.font}" font-size="9" font-weight="700" fill="${theme.text}" ${textStroke(theme)}>7D ${weekly.qualifier}</text>
+  <text x="${rightX}" y="138" text-anchor="end" font-family="${theme.font}" font-size="9" font-weight="700" fill="${theme.text}" ${textStroke(theme)}>${weekly.window ? `${weekly.value}% · ${formatReset(weekly.window.resetsAt)}` : "—"}</text>
 </svg>`;
 }
 
-function stripShellSegment(label: string, accent: string, segmentIndex: number, segments: number, headline: string): string {
+function stripShellSegment(label: string, theme: Theme, segmentIndex: number, segments: number, headline: string): string {
   const keyWidth = 144;
   const offset = segmentIndex * keyWidth;
   const primaryValueX = stripAnchorX(segments, keyWidth) - offset;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
-  <rect width="144" height="144" fill="#111318"/>
-  <rect width="144" height="119" fill="#292d35"/>
-  <rect y="123" width="144" height="21" fill="#30343d"/>
-  <rect y="118" width="144" height="5" fill="#111318"/>
-  <text x="${16 - offset}" y="24" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="${accent}">${escapeXml(label)} · 5H</text>
-  <text x="${primaryValueX}" y="76" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#ffffff">${escapeXml(headline)}</text>
+  ${themeDefs(theme)}
+  <rect width="144" height="144" fill="${theme.background}"/>
+  <rect width="144" height="119" fill="${theme.surface}"/>
+  ${textureOverlay(theme, 0, 0, 144, 119, 0.12)}
+  <rect y="123" width="144" height="21" fill="${theme.track}"/>
+  <rect y="118" width="144" height="5" fill="${theme.divider}"/>
+  <text x="${16 - offset}" y="24" font-family="${theme.font}" font-size="12" font-weight="700" fill="${theme.primary}" ${textStroke(theme)}>${escapeXml(label)} · 5H</text>
+  <text x="${primaryValueX}" y="76" text-anchor="middle" font-family="${theme.font}" font-size="18" font-weight="700" fill="${theme.text}" ${textStroke(theme)}>${escapeXml(headline)}</text>
 </svg>`;
 }
 
@@ -153,9 +164,9 @@ function stripAnchorX(segments: number, keyWidth: number): number {
   return anchorSegment * keyWidth + keyWidth / 2;
 }
 
-function stripMetric(window: UsageWindow | undefined, mode: BarMode, accent: string) {
+function stripMetric(window: UsageWindow | undefined, mode: BarMode, theme: Theme, role: "primary" | "secondary") {
   if (!window) {
-    return { window: undefined, width: 0, value: 0, qualifier: mode === "depleting" ? "LEFT" : "USED", color: accent };
+    return { window: undefined, width: 0, value: 0, qualifier: mode === "depleting" ? "LEFT" : "USED", color: theme[role] };
   }
   const used = Math.max(0, Math.min(100, window.usedPercent));
   const visualPercent = mode === "depleting" ? 100 - used : used;
@@ -164,13 +175,13 @@ function stripMetric(window: UsageWindow | undefined, mode: BarMode, accent: str
     width: visualPercent / 100,
     value: Math.round(visualPercent),
     qualifier: mode === "depleting" ? "LEFT" : "USED",
-    color: riskColor(used, accent)
+    color: riskColor(theme, used, role)
   };
 }
 
-function bar(label: string, window: UsageWindow | undefined, mode: BarMode, y: number, accent: string): string {
+function bar(label: string, window: UsageWindow | undefined, mode: BarMode, y: number, theme: Theme, role: "primary" | "secondary"): string {
   if (!window) {
-    return `<text x="14" y="${y + 17}" font-family="Arial,sans-serif" font-size="12" fill="#7f8795">${label} —</text>`;
+    return `<text x="14" y="${y + 17}" font-family="${theme.font}" font-size="12" fill="${theme.muted}" ${textStroke(theme)}>${label} —</text>`;
   }
 
   const used = Math.max(0, Math.min(100, window.usedPercent));
@@ -178,28 +189,41 @@ function bar(label: string, window: UsageWindow | undefined, mode: BarMode, y: n
   const value = Math.round(visualPercent);
   const width = 116 * (visualPercent / 100);
   const reset = formatReset(window.resetsAt);
-  const fill = riskColor(used, accent);
+  const fill = riskColor(theme, used, role);
   const qualifier = mode === "depleting" ? "LEFT" : "USED";
 
-  return `<text x="14" y="${y}" font-family="Arial,sans-serif" font-size="10" font-weight="700" fill="#c8cdd6">${label} ${qualifier}</text>
-  <text x="130" y="${y}" text-anchor="end" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#ffffff">${value}%</text>
-  <rect x="14" y="${y + 8}" width="116" height="10" rx="5" fill="#30343d"/>
-  <rect x="14" y="${y + 8}" width="${width}" height="10" rx="5" fill="${fill}"/>
-  <text x="14" y="${y + 31}" font-family="Arial,sans-serif" font-size="9" fill="#7f8795">reset ${reset}</text>`;
+  const barRadius = Math.min(5, theme.radius);
+  return `<text x="14" y="${y}" font-family="${theme.font}" font-size="10" font-weight="700" fill="${theme.text}" ${textStroke(theme)}>${label} ${qualifier}</text>
+  <text x="130" y="${y}" text-anchor="end" font-family="${theme.font}" font-size="11" font-weight="700" fill="${theme.text}" ${textStroke(theme)}>${value}%</text>
+  <rect x="14" y="${y + 8}" width="116" height="10" rx="${barRadius}" fill="${theme.track}" stroke="${theme.divider}" stroke-width="${theme.id === "e-ink" ? 2 : 0}"/>
+  <rect x="14" y="${y + 8}" width="${width}" height="10" rx="${barRadius}" fill="${fill}"/>
+  ${textureOverlay(theme, 14, y + 8, width, 10, 0.3)}
+  <text x="14" y="${y + 31}" font-family="${theme.font}" font-size="9" fill="${theme.muted}" ${textStroke(theme)}>reset ${reset}</text>`;
 }
 
-function riskColor(usedPercent: number, accent: string): string {
-  return usedPercent >= 90 ? "#ff6b6b" : usedPercent >= 75 ? "#ffca66" : accent;
-}
-
-function shell(label: string, accent: string, headline: string, detail?: string): string {
+function shell(label: string, theme: Theme, headline: string, detail?: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
-  <rect width="144" height="144" rx="24" fill="#111318"/>
-  <circle cx="20" cy="22" r="5" fill="${accent}"/>
-  <text x="32" y="27" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#ffffff">${escapeXml(label)}</text>
-  <text x="72" y="75" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#ffffff">${escapeXml(headline)}</text>
-  ${detail ? `<text x="72" y="96" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" fill="#7f8795">${escapeXml(detail)}</text>` : ""}
+  ${themeDefs(theme)}
+  <rect width="144" height="144" rx="${theme.radius}" fill="${theme.background}"/>
+  ${themeDecoration(theme, 144, 144)}
+  ${textureOverlay(theme, 0, 0, 144, 144, 0.1)}
+  <circle cx="20" cy="22" r="5" fill="${theme.primary}"/>
+  <text x="32" y="27" font-family="${theme.font}" font-size="13" font-weight="700" fill="${theme.text}" ${textStroke(theme)}>${escapeXml(label)}</text>
+  <text x="72" y="75" text-anchor="middle" font-family="${theme.font}" font-size="16" font-weight="700" fill="${theme.text}" ${textStroke(theme)}>${escapeXml(headline)}</text>
+  ${detail ? `<text x="72" y="96" text-anchor="middle" font-family="${theme.font}" font-size="8" fill="${theme.muted}" ${textStroke(theme)}>${escapeXml(detail)}</text>` : ""}
 </svg>`;
+}
+
+function themeDecoration(theme: Theme, width: number, height: number, offset = 0): string {
+  if (theme.style !== "blocks") return "";
+  return `<rect x="${width - offset - 90}" y="0" width="90" height="28" fill="${theme.secondary}"/>
+  <rect x="${Math.round(width * 0.72) - offset}" y="${height - 31}" width="${Math.round(width * 0.16)}" height="31" fill="${theme.primary}"/>`;
+}
+
+function textStroke(theme: Theme, width = 2): string {
+  return theme.textStroke
+    ? `paint-order="stroke" stroke="${theme.textStroke}" stroke-width="${width}" stroke-linejoin="round"`
+    : "";
 }
 
 function formatReset(epochSeconds?: number): string {

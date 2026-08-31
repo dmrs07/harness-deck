@@ -95,7 +95,28 @@ Completing:  5H USED  42%  [████░░░░░░]
 Depleting:   5H LEFT  58%  [██████░░░░]
 ```
 
-Danger color always follows **quota consumed**, regardless of bar direction: amber at 75% used and red at 90% used.
+Danger color always follows **quota consumed**, regardless of bar direction. In the default Harness theme it becomes amber at 75% used and red at 90% used; other packs use their own warning and danger colors.
+
+## Theme packs
+
+Every action has a **Theme pack** selector in its Property Inspector. The setting is stored per key, so Codex, Claude and AI Usage can use different themes. All keys participating in one multi-key strip should use the same pack.
+
+The original **Harness** appearance remains the default for existing profiles. Ten additional packs are included:
+
+| Pack | Visual language |
+| --- | --- |
+| **Ravena** | Matte violet, graphite and cold gray with restrained diagonal texture. |
+| **Glob** | Lime, moss and sponge green with an organic bubble texture. |
+| **Kraken** | Abyssal blue, petroleum and bioluminescent cyan waves. |
+| **Aurix** | Gold, amber and graphite crossed by conductive mineral veins. |
+| **Fornalha** | Ember orange, coal and rising sparks. |
+| **Cryo** | Ice blue, navy and fractured crystalline lines. |
+| **Terminal** | Monochrome phosphor green, square geometry and CRT scanlines. |
+| **Synthwave** | Magenta, violet and cyan over a neon grid. |
+| **Alerta Carmesim** | Military red, amber and industrial hazard stripes. |
+| **E-Ink** | Mondrianish red and yellow on light cream, with flat blocks and no glow or gradients. |
+
+Themes affect both the dominant 5-hour bar and the thin weekly rail. Warning and danger states remain based on real quota consumed, but use colors belonging to the selected pack.
 
 ## Multi-key strips
 
@@ -148,6 +169,7 @@ src/
     usage-service.ts  # shared 60s polling + subscriptions
   ui/
     render.ts         # dynamic SVG + virtual multi-key strip rendering
+    themes.ts         # theme registry, palettes and SVG textures
   plugin.ts
 com.dmrs07.harness-deck.sdPlugin/
   ui/
