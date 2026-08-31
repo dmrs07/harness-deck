@@ -69,7 +69,7 @@ abstract class ProviderStripAction extends SingletonAction<UsageBarSettings> {
   override async onWillAppear(ev: WillAppearEvent<UsageBarSettings>): Promise<void> {
     usageService.start();
     const settings = resolveStripSettings(ev.payload.settings);
-    const column = ev.payload.coordinates?.column ?? 0;
+    const column = ev.payload.isInMultiAction ? -1 : ev.payload.coordinates.column;
     this.settings.set(ev.action, settings);
     this.columns.set(ev.action, column);
     const render = () => void this.render(ev.action, this.settings.get(ev.action) ?? settings, this.columns.get(ev.action) ?? column);
@@ -80,7 +80,7 @@ abstract class ProviderStripAction extends SingletonAction<UsageBarSettings> {
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<UsageBarSettings>): Promise<void> {
     const settings = resolveStripSettings(ev.payload.settings);
     this.settings.set(ev.action, settings);
-    await this.render(ev.action, settings, this.columns.get(ev.action) ?? 0);
+    await this.render(ev.action, settings, this.columns.get(ev.action) ?? -1);
   }
 
   override onWillDisappear(ev: WillDisappearEvent<UsageBarSettings>): void {
