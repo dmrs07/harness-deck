@@ -114,7 +114,7 @@ function stripSvg(
   const offset = segmentIndex * keyWidth;
   const five = stripMetric(fiveHour, settings.fiveHourMode, accent);
   const weekly = stripMetric(sevenDay, settings.sevenDayMode, accent);
-  const centerX = totalWidth / 2 - offset;
+  const primaryValueX = stripAnchorX(settings.stripSegments, keyWidth) - offset;
   const leftX = 16 - offset;
   const rightX = totalWidth - 16 - offset;
 
@@ -127,7 +127,7 @@ function stripSvg(
   <rect y="118" width="144" height="5" fill="#111318"/>
   <text x="${leftX}" y="24" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#ffffff">${escapeXml(label)} · 5H ${five.qualifier}</text>
   ${badge ? `<text x="${leftX}" y="42" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#ffca66">${badge}</text>` : ""}
-  <text x="${centerX}" y="79" text-anchor="middle" font-family="Arial,sans-serif" font-size="34" font-weight="800" fill="#ffffff">${five.window ? `${five.value}%` : "—"}</text>
+  <text x="${primaryValueX}" y="79" text-anchor="middle" font-family="Arial,sans-serif" font-size="34" font-weight="800" fill="#ffffff">${five.window ? `${five.value}%` : "—"}</text>
   <text x="${rightX}" y="104" text-anchor="end" font-family="Arial,sans-serif" font-size="10" font-weight="700" fill="#ffffff">${five.window ? `reset ${formatReset(five.window.resetsAt)}` : "5h unavailable"}</text>
   <text x="${leftX}" y="138" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#ffffff">7D ${weekly.qualifier}</text>
   <text x="${rightX}" y="138" text-anchor="end" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#ffffff">${weekly.window ? `${weekly.value}% · ${formatReset(weekly.window.resetsAt)}` : "—"}</text>
@@ -136,17 +136,21 @@ function stripSvg(
 
 function stripShellSegment(label: string, accent: string, segmentIndex: number, segments: number, headline: string): string {
   const keyWidth = 144;
-  const totalWidth = segments * keyWidth;
   const offset = segmentIndex * keyWidth;
-  const centerX = totalWidth / 2 - offset;
+  const primaryValueX = stripAnchorX(segments, keyWidth) - offset;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
   <rect width="144" height="144" fill="#111318"/>
   <rect width="144" height="119" fill="#292d35"/>
   <rect y="123" width="144" height="21" fill="#30343d"/>
   <rect y="118" width="144" height="5" fill="#111318"/>
   <text x="${16 - offset}" y="24" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="${accent}">${escapeXml(label)} · 5H</text>
-  <text x="${centerX}" y="76" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#ffffff">${escapeXml(headline)}</text>
+  <text x="${primaryValueX}" y="76" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#ffffff">${escapeXml(headline)}</text>
 </svg>`;
+}
+
+function stripAnchorX(segments: number, keyWidth: number): number {
+  const anchorSegment = Math.floor((segments - 1) / 2);
+  return anchorSegment * keyWidth + keyWidth / 2;
 }
 
 function stripMetric(window: UsageWindow | undefined, mode: BarMode, accent: string) {
