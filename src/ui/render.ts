@@ -1,3 +1,5 @@
+import type { BarMode, ResolvedUsageBarSettings } from "../config/bar-settings.js";
+import { DEFAULT_USAGE_BAR_SETTINGS } from "../config/bar-settings.js";
 import type { Provider, UsageSnapshot, UsageWindow } from "../domain/usage.js";
 
 const PROVIDER_LABEL: Record<Provider, string> = {
@@ -10,7 +12,11 @@ const PROVIDER_ACCENT: Record<Provider, string> = {
   claude: "#d5a36f"
 };
 
-export function renderProvider(snapshot: UsageSnapshot | undefined, provider: Provider): string {
+export function renderProvider(
+  snapshot: UsageSnapshot | undefined,
+  provider: Provider,
+  settings: ResolvedUsageBarSettings = DEFAULT_USAGE_BAR_SETTINGS
+): string {
   const label = PROVIDER_LABEL[provider];
   const accent = PROVIDER_ACCENT[provider];
 
@@ -18,10 +24,14 @@ export function renderProvider(snapshot: UsageSnapshot | undefined, provider: Pr
   if (snapshot.error) return svgDataUrl(shell(label, "#ff7b7b", "NO DATA", shortError(snapshot.error)));
 
   const stale = snapshot.stale ? "STALE" : undefined;
-  return svgDataUrl(usageSvg(label, accent, snapshot.fiveHour, snapshot.sevenDay, stale));
+  return svgDataUrl(usageSvg(label, accent, snapshot.fiveHour, snapshot.sevenDay, settings, stale));
 }
 
-export function renderCombined(codex?: UsageSnapshot, claude?: UsageSnapshot): string {
+export function renderCombined(
+  codex?: UsageSnapshot,
+  claude?: UsageSnapshot,
+  settings: ResolvedUsageBarSettings = DEFAULT_USAGE_BAR_SETTINGS
+): string {
   const candidates = [codex, claude].filter((item): item is UsageSnapshot => Boolean(item && !item.error));
   if (!candidates.length) return svgDataUrl(shell("AI USAGE", "#8fb5ff", "NO DATA"));
 
@@ -32,33 +42,52 @@ export function renderCombined(codex?: UsageSnapshot, claude?: UsageSnapshot): s
   scored.sort((a, b) => b.score - a.score);
 
   const worst = scored[0].snapshot;
-  return svgDataUrl(usageSvg(`AI · ${PROVIDER_LABEL[worst.provider]}`, PROVIDER_ACCENT[worst.provider], worst.fiveHour, worst.sevenDay, worst.stale ? "STALE" : undefined));
+  return svgDataUrl(
+    usageSvg(
+      `AI · ${PROVIDER_LABEL[worst.provider]}`,
+      PROVIDER_ACCENT[worst.provider],
+      worst.fiveHour,
+      worst.sevenDay,
+      settings,
+      worst.stale ? "STALE" : undefined
+    )
+  );
 }
 
-function usageSvg(label: string, accent: string, fiveHour?: UsageWindow, sevenDay?: UsageWindow, badge?: string): string {
+function usageSvg(
+  label: string,
+  accent: string,
+  fiveHour: UsageWindow | undefined,
+  sevenDay: UsageWindow | undefined,
+  settings: ResolvedUsageBarSettings,
+  badge?: string
+): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
   <rect width="144" height="144" rx="24" fill="#111318"/>
   <text x="14" y="25" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#ffffff">${escapeXml(label)}</text>
   ${badge ? `<text x="130" y="25" text-anchor="end" font-family="Arial,sans-serif" font-size="9" fill="#ffca66">${badge}</text>` : ""}
-  ${bar("5H", fiveHour, 43, accent)}
-  ${bar("7D", sevenDay, 90, accent)}
+  ${bar("5H", fiveHour, settings.fiveHourMode, 43, accent)}
+  ${bar("7D", sevenDay, settings.sevenDayMode, 90, accent)}
 </svg>`;
 }
 
-function bar(label: string, window: UsageWindow | undefined, y: number, accent: string): string {
+function bar(label: string, window: UsageWindow | undefined, mode: BarMode, y: number, accent: string): string {
   if (!window) {
     return `<text x="14" y="${y + 17}" font-family="Arial,sans-serif" font-size="12" fill="#7f8795">${label} —</text>`;
   }
 
-  const used = Math.round(window.usedPercent);
-  const width = Math.max(0, Math.min(104, 104 * (window.usedPercent / 100)));
+  const used = Math.max(0, Math.min(100, window.usedPercent));
+  const visualPercent = mode === "depleting" ? 100 - used : used;
+  const value = Math.round(visualPercent);
+  const width = 116 * (visualPercent / 100);
   const reset = formatReset(window.resetsAt);
   const fill = used >= 90 ? "#ff6b6b" : used >= 75 ? "#ffca66" : accent;
+  const qualifier = mode === "depleting" ? "LEFT" : "USED";
 
-  return `<text x="14" y="${y}" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#c8cdd6">${label}</text>
-  <text x="130" y="${y}" text-anchor="end" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#ffffff">${used}%</text>
+  return `<text x="14" y="${y}" font-family="Arial,sans-serif" font-size="10" font-weight="700" fill="#c8cdd6">${label} ${qualifier}</text>
+  <text x="130" y="${y}" text-anchor="end" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#ffffff">${value}%</text>
   <rect x="14" y="${y + 8}" width="116" height="10" rx="5" fill="#30343d"/>
-  <rect x="14" y="${y + 8}" width="${width * (116 / 104)}" height="10" rx="5" fill="${fill}"/>
+  <rect x="14" y="${y + 8}" width="${width}" height="10" rx="5" fill="${fill}"/>
   <text x="14" y="${y + 31}" font-family="Arial,sans-serif" font-size="9" fill="#7f8795">reset ${reset}</text>`;
 }
 
