@@ -15,23 +15,47 @@
     .strip-only { display:none; }
     body.strip .strip-only { display:block; }
     .preview-title { margin:18px 0 8px; color:#cfcfcf; font-weight:600; }
-    .preview { border:1px solid #484848; border-radius:8px; background:#202124; padding:10px; }
+    .preview { position:relative; border:1px solid var(--divider,#484848); border-radius:var(--radius,8px); background:var(--background,#202124); color:var(--text,#fff); padding:10px; overflow:hidden; }
+    .preview > * { position:relative; z-index:1; }
     .row + .row { margin-top:11px; }
     .row-head { display:flex; justify-content:space-between; margin-bottom:5px; font-size:11px; }
-    .track { height:8px; border-radius:4px; overflow:hidden; background:#3a3d44; }
-    .fill { height:100%; border-radius:inherit; background:#76e6a6; transition:width 120ms ease; }
+    .track { height:8px; border-radius:var(--bar-radius,4px); overflow:hidden; background:var(--track,#3a3d44); border:var(--track-border,0) solid var(--divider,#484848); }
+    .fill { height:100%; border-radius:inherit; background:var(--primary,#76e6a6); transition:width 120ms ease; }
+    [data-preview="sevenDayMode"] .fill { background:var(--secondary,#8fb5ff); }
     .strip-preview { display:none; gap:4px; height:72px; }
     body.strip .normal-preview { display:none; }
     body.strip .strip-preview { display:flex; }
-    .segment { position:relative; flex:1; min-width:0; background:#292d35; overflow:hidden; border-radius:5px; border:1px solid #444; }
-    .segment-main-fill { position:absolute; inset:0 auto 12px 0; background:#76e6a6; opacity:.88; }
-    .segment-week-track { position:absolute; left:0; right:0; bottom:0; height:9px; background:#3a3d44; }
-    .segment-week-fill { position:absolute; left:0; bottom:0; height:9px; background:#76e6a6; }
-    .strip-value { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:2; font-size:16px; font-weight:800; text-shadow:0 1px 2px #000; }
+    .segment { position:relative; flex:1; min-width:0; background:var(--surface,#292d35); overflow:hidden; border-radius:var(--segment-radius,5px); border:1px solid var(--divider,#444); }
+    .segment-main-fill { position:absolute; inset:0 auto 12px 0; background-color:var(--primary,#76e6a6); opacity:.88; }
+    .segment-week-track { position:absolute; left:0; right:0; bottom:0; height:9px; background:var(--track,#3a3d44); border-top:2px solid var(--divider,#111318); }
+    .segment-week-fill { position:absolute; left:0; bottom:0; height:9px; background:var(--secondary,#8fb5ff); }
+    .strip-value { position:absolute; inset:0 0 10px; display:flex; align-items:center; justify-content:center; z-index:2; color:var(--text,#fff); font-family:var(--theme-font,sans-serif); font-size:16px; font-weight:800; text-shadow:var(--text-shadow,0 1px 2px #000); }
+    body[data-theme-style="scanlines"] .preview { box-shadow:inset 0 0 12px var(--primary); }
+    body[data-theme-style="grid"] .preview { box-shadow:inset 0 -12px 24px color-mix(in srgb,var(--primary) 25%,transparent); }
+    body[data-theme-style="blocks"] .preview::before { content:""; position:absolute; z-index:0; top:0; right:10%; width:18%; height:30%; background:var(--secondary); }
+    body[data-theme-style="blocks"] .segment-main-fill { opacity:1; }
     .legend { margin-top:12px; color:#8e8e8e; font-size:10px; line-height:1.4; }
   </style>
 </head>
 <body>
+  <div class="field">
+    <label for="theme">Theme pack</label>
+    <select id="theme" data-theme-setting="theme">
+      <option value="harness">Harness — original</option>
+      <option value="ravena">Ravena — matte purple</option>
+      <option value="glob">Glob — organic lime</option>
+      <option value="kraken">Kraken — bioluminescent abyss</option>
+      <option value="aurix">Aurix — conductive gold</option>
+      <option value="fornalha">Fornalha — ember and coal</option>
+      <option value="cryo">Cryo — fractured ice</option>
+      <option value="terminal">Terminal — phosphor CRT</option>
+      <option value="synthwave">Synthwave — neon grid</option>
+      <option value="alerta-carmesim">Alerta Carmesim — industrial warning</option>
+      <option value="e-ink">E-Ink — red, yellow and cream</option>
+    </select>
+    <div class="hint">Saved per key. A multi-key strip should use the same pack on every participating key.</div>
+  </div>
+
   <div class="field strip-only">
     <label for="stripSegments">Keys in strip (N)</label>
     <input id="stripSegments" type="number" min="1" max="8" step="1" data-number-setting="stripSegments" value="5" />
@@ -85,7 +109,22 @@
     let settings = {};
     let isStrip = false;
 
+    const THEMES = {
+      harness: { style:"clean", background:"#111318", surface:"#292d35", track:"#30343d", primary:"#76e6a6", secondary:"#8fb5ff", text:"#ffffff", divider:"#111318", radius:8, font:"Arial,sans-serif" },
+      ravena: { style:"matte", background:"#0c0a0f", surface:"#29252e", track:"#45404b", primary:"#76558d", secondary:"#a59daa", text:"#f2edf4", divider:"#17121c", radius:7, font:"Arial,sans-serif" },
+      glob: { style:"bubbles", background:"#10170a", surface:"#314328", track:"#53634a", primary:"#b5f23f", secondary:"#789b3a", text:"#f4ffe1", divider:"#1b2712", radius:12, font:"Arial Rounded MT Bold,Arial,sans-serif" },
+      kraken: { style:"waves", background:"#06141d", surface:"#0d3040", track:"#174b5e", primary:"#17d7c5", secondary:"#4897ba", text:"#e8ffff", divider:"#041018", radius:9, font:"Arial,sans-serif" },
+      aurix: { style:"veins", background:"#15120b", surface:"#373024", track:"#554a32", primary:"#f1b83c", secondary:"#d77824", text:"#fff6d7", divider:"#211a0d", radius:5, font:"Arial,sans-serif" },
+      fornalha: { style:"embers", background:"#160907", surface:"#3a1710", track:"#5a2418", primary:"#ff762b", secondary:"#d63b1f", text:"#fff0dc", divider:"#210b08", radius:4, font:"Arial,sans-serif" },
+      cryo: { style:"crystal", background:"#071525", surface:"#16334a", track:"#28536e", primary:"#9ae7ff", secondary:"#5f9fe8", text:"#f2fcff", divider:"#071827", radius:6, font:"Arial,sans-serif" },
+      terminal: { style:"scanlines", background:"#020702", surface:"#071408", track:"#17351a", primary:"#48ff62", secondary:"#1fb43c", text:"#74ff83", divider:"#000000", radius:0, font:"Consolas,monospace" },
+      synthwave: { style:"grid", background:"#100526", surface:"#27104a", track:"#43206d", primary:"#ff3fcf", secondary:"#27d9ff", text:"#fff1ff", divider:"#14072d", radius:8, font:"Arial,sans-serif" },
+      "alerta-carmesim": { style:"hazard", background:"#120405", surface:"#351012", track:"#56191d", primary:"#dc2638", secondary:"#f0a22e", text:"#fff0e8", divider:"#1d0709", radius:3, font:"Arial,sans-serif" },
+      "e-ink": { style:"blocks", background:"#f3ead2", surface:"#f3ead2", track:"#f3ead2", primary:"#cf2f24", secondary:"#e9b925", text:"#cf2f24", divider:"#cf2f24", radius:0, font:"Arial Black,Arial,sans-serif" }
+    };
+
     const normalizeMode = (value) => value === "depleting" ? "depleting" : "completing";
+    const normalizeTheme = (value) => Object.prototype.hasOwnProperty.call(THEMES, value) ? value : "harness";
     const asInt = (value, fallback, min, max) => {
       const n = Number(value);
       return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : fallback;
@@ -95,6 +134,9 @@
       settings = { ...next };
       document.querySelectorAll("[data-mode-setting]").forEach((element) => {
         element.value = normalizeMode(settings[element.dataset.modeSetting]);
+      });
+      document.querySelectorAll("[data-theme-setting]").forEach((element) => {
+        element.value = normalizeTheme(settings[element.dataset.themeSetting]);
       });
       document.querySelectorAll("[data-number-setting]").forEach((element) => {
         const key = element.dataset.numberSetting;
@@ -107,7 +149,9 @@
     function persist(key, value) {
       const nextValue = key === "fiveHourMode" || key === "sevenDayMode"
         ? normalizeMode(value)
-        : asInt(value, key === "stripSegments" ? 5 : 0, key === "stripSegments" ? 1 : 0, 8);
+        : key === "theme"
+          ? normalizeTheme(value)
+          : asInt(value, key === "stripSegments" ? 5 : 0, key === "stripSegments" ? 1 : 0, 8);
       settings = { ...settings, [key]: nextValue };
       renderPreview();
       if (!socket || socket.readyState !== WebSocket.OPEN) return;
@@ -119,6 +163,7 @@
     }
 
     function renderPreview() {
+      applyThemePreview();
       document.querySelectorAll("[data-preview]").forEach((row) => {
         const mode = normalizeMode(settings[row.dataset.preview]);
         const shown = shownPercent(Number(row.dataset.used), mode);
@@ -140,13 +185,45 @@
         const localWeekly = Math.max(0, Math.min(100, (seven - start) / (end - start) * 100));
         const segment = document.createElement("div");
         segment.className = "segment";
-        segment.innerHTML = `<div class="segment-main-fill" style="width:${localFill}%"></div><div class="segment-week-track"></div><div class="segment-week-fill" style="width:${localWeekly}%"></div>${i === Math.floor((segments - 1) / 2) ? `<div class="strip-value">${Math.round(five)}%</div>` : ""}`;
+        const texture = textureFor(THEMES[normalizeTheme(settings.theme)].style);
+        segment.innerHTML = `<div class="segment-main-fill" style="width:${localFill}%;background-image:${texture}"></div><div class="segment-week-track"></div><div class="segment-week-fill" style="width:${localWeekly}%"></div>${i === Math.floor((segments - 1) / 2) ? `<div class="strip-value">${Math.round(five)}%</div>` : ""}`;
         preview.appendChild(segment);
       }
     }
 
+    function applyThemePreview() {
+      const selected = THEMES[normalizeTheme(settings.theme)];
+      const providerAccent = typeof action === "string" && action.includes("claude") ? "#d5a36f" : "#76e6a6";
+      const theme = selected === THEMES.harness ? { ...selected, primary:providerAccent, secondary:providerAccent } : selected;
+      const root = document.documentElement.style;
+      Object.entries(theme).forEach(([key, value]) => root.setProperty(`--${key}`, typeof value === "number" ? `${value}px` : value));
+      root.setProperty("--bar-radius", theme.radius === 0 ? "0" : "4px");
+      root.setProperty("--segment-radius", `${Math.min(theme.radius, 5)}px`);
+      root.setProperty("--track-border", theme.style === "blocks" ? "1px" : "0");
+      root.setProperty("--theme-font", theme.font);
+      root.setProperty("--text-shadow", theme.style === "blocks" ? "0 0 2px #f3ead2,0 0 2px #f3ead2" : "0 1px 2px #000");
+      document.body.dataset.themeStyle = theme.style;
+      document.querySelectorAll(".fill").forEach((fill) => { fill.style.backgroundImage = textureFor(theme.style); });
+    }
+
+    function textureFor(style) {
+      if (style === "bubbles") return "radial-gradient(circle at 25% 35%,transparent 0 2px,rgba(255,255,255,.3) 2px 3px,transparent 3px 100%)";
+      if (style === "waves") return "repeating-radial-gradient(ellipse at 0 100%,transparent 0 8px,rgba(255,255,255,.22) 9px 10px,transparent 11px 18px)";
+      if (style === "veins") return "linear-gradient(125deg,transparent 40%,rgba(255,255,255,.25) 42% 44%,transparent 46%)";
+      if (style === "embers") return "radial-gradient(circle at 30% 70%,rgba(255,255,255,.35) 0 1px,transparent 2px)";
+      if (style === "crystal") return "linear-gradient(45deg,transparent 45%,rgba(255,255,255,.28) 47% 49%,transparent 51%)";
+      if (style === "scanlines") return "repeating-linear-gradient(0deg,transparent 0 2px,rgba(255,255,255,.18) 2px 3px)";
+      if (style === "grid") return "linear-gradient(rgba(39,217,255,.22) 1px,transparent 1px),linear-gradient(90deg,rgba(39,217,255,.22) 1px,transparent 1px)";
+      if (style === "hazard") return "repeating-linear-gradient(125deg,transparent 0 8px,rgba(240,162,46,.45) 8px 14px)";
+      if (style === "matte") return "repeating-linear-gradient(135deg,transparent 0 9px,rgba(255,255,255,.08) 9px 10px)";
+      return "none";
+    }
+
     document.querySelectorAll("[data-mode-setting]").forEach((element) => {
       element.addEventListener("change", () => persist(element.dataset.modeSetting, element.value));
+    });
+    document.querySelectorAll("[data-theme-setting]").forEach((element) => {
+      element.addEventListener("change", () => persist(element.dataset.themeSetting, element.value));
     });
     document.querySelectorAll("[data-number-setting]").forEach((element) => {
       element.addEventListener("change", () => persist(element.dataset.numberSetting, element.value));

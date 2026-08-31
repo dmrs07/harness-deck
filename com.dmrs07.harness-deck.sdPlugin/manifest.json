@@ -2,7 +2,7 @@
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "UUID": "com.dmrs07.harness-deck",
   "Name": "Harness Deck",
-  "Version": "0.2.0.0",
+  "Version": "0.3.0.0",
   "Author": "Daniel Moraes",
   "Description": "Codex and Claude Code usage limits at a glance.",
   "Category": "Harness Deck",
