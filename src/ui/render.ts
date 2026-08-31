@@ -1,5 +1,5 @@
-import type { BarMode, ResolvedUsageBarSettings } from "../config/bar-settings.js";
-import { DEFAULT_USAGE_BAR_SETTINGS } from "../config/bar-settings.js";
+import type { BarMode, ResolvedStripSettings, ResolvedUsageBarSettings } from "../config/bar-settings.js";
+import { DEFAULT_STRIP_SETTINGS, DEFAULT_USAGE_BAR_SETTINGS } from "../config/bar-settings.js";
 import type { Provider, UsageSnapshot, UsageWindow } from "../domain/usage.js";
 
 const PROVIDER_LABEL: Record<Provider, string> = {
@@ -54,6 +54,35 @@ export function renderCombined(
   );
 }
 
+export function renderStripSegment(
+  snapshot: UsageSnapshot | undefined,
+  provider: Provider,
+  column: number,
+  settings: ResolvedStripSettings = DEFAULT_STRIP_SETTINGS
+): string {
+  const label = PROVIDER_LABEL[provider];
+  const accent = PROVIDER_ACCENT[provider];
+  const segmentIndex = column - settings.stripStartColumn;
+
+  if (segmentIndex < 0 || segmentIndex >= settings.stripSegments) {
+    return svgDataUrl(shell("USAGE STRIP", "#ffca66", "OUTSIDE", `cols ${settings.stripStartColumn + 1}-${settings.stripStartColumn + settings.stripSegments}`));
+  }
+  if (!snapshot) return svgDataUrl(stripShellSegment(label, accent, segmentIndex, settings.stripSegments, "Loading…"));
+  if (snapshot.error) return svgDataUrl(stripShellSegment(label, "#ff7b7b", segmentIndex, settings.stripSegments, "NO DATA"));
+
+  return svgDataUrl(
+    stripSvg(
+      label,
+      accent,
+      snapshot.fiveHour,
+      snapshot.sevenDay,
+      settings,
+      segmentIndex,
+      snapshot.stale ? "STALE" : undefined
+    )
+  );
+}
+
 function usageSvg(
   label: string,
   accent: string,
@@ -71,6 +100,70 @@ function usageSvg(
 </svg>`;
 }
 
+function stripSvg(
+  label: string,
+  accent: string,
+  fiveHour: UsageWindow | undefined,
+  sevenDay: UsageWindow | undefined,
+  settings: ResolvedStripSettings,
+  segmentIndex: number,
+  badge?: string
+): string {
+  const keyWidth = 144;
+  const totalWidth = settings.stripSegments * keyWidth;
+  const offset = segmentIndex * keyWidth;
+  const five = stripMetric(fiveHour, settings.fiveHourMode, accent);
+  const weekly = stripMetric(sevenDay, settings.sevenDayMode, accent);
+  const centerX = totalWidth / 2 - offset;
+  const leftX = 16 - offset;
+  const rightX = totalWidth - 16 - offset;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
+  <rect width="144" height="144" fill="#111318"/>
+  <rect width="144" height="119" fill="#292d35"/>
+  ${five.window ? `<rect x="${-offset}" y="0" width="${five.width * totalWidth}" height="119" fill="${five.color}" opacity="0.88"/>` : ""}
+  <rect y="123" width="144" height="21" fill="#30343d"/>
+  ${weekly.window ? `<rect x="${-offset}" y="123" width="${weekly.width * totalWidth}" height="21" fill="${weekly.color}"/>` : ""}
+  <rect y="118" width="144" height="5" fill="#111318"/>
+  <text x="${leftX}" y="24" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#ffffff">${escapeXml(label)} · 5H ${five.qualifier}</text>
+  ${badge ? `<text x="${leftX}" y="42" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#ffca66">${badge}</text>` : ""}
+  <text x="${centerX}" y="79" text-anchor="middle" font-family="Arial,sans-serif" font-size="34" font-weight="800" fill="#ffffff">${five.window ? `${five.value}%` : "—"}</text>
+  <text x="${rightX}" y="104" text-anchor="end" font-family="Arial,sans-serif" font-size="10" font-weight="700" fill="#ffffff">${five.window ? `reset ${formatReset(five.window.resetsAt)}` : "5h unavailable"}</text>
+  <text x="${leftX}" y="138" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#ffffff">7D ${weekly.qualifier}</text>
+  <text x="${rightX}" y="138" text-anchor="end" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#ffffff">${weekly.window ? `${weekly.value}% · ${formatReset(weekly.window.resetsAt)}` : "—"}</text>
+</svg>`;
+}
+
+function stripShellSegment(label: string, accent: string, segmentIndex: number, segments: number, headline: string): string {
+  const keyWidth = 144;
+  const totalWidth = segments * keyWidth;
+  const offset = segmentIndex * keyWidth;
+  const centerX = totalWidth / 2 - offset;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
+  <rect width="144" height="144" fill="#111318"/>
+  <rect width="144" height="119" fill="#292d35"/>
+  <rect y="123" width="144" height="21" fill="#30343d"/>
+  <rect y="118" width="144" height="5" fill="#111318"/>
+  <text x="${16 - offset}" y="24" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="${accent}">${escapeXml(label)} · 5H</text>
+  <text x="${centerX}" y="76" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#ffffff">${escapeXml(headline)}</text>
+</svg>`;
+}
+
+function stripMetric(window: UsageWindow | undefined, mode: BarMode, accent: string) {
+  if (!window) {
+    return { window: undefined, width: 0, value: 0, qualifier: mode === "depleting" ? "LEFT" : "USED", color: accent };
+  }
+  const used = Math.max(0, Math.min(100, window.usedPercent));
+  const visualPercent = mode === "depleting" ? 100 - used : used;
+  return {
+    window,
+    width: visualPercent / 100,
+    value: Math.round(visualPercent),
+    qualifier: mode === "depleting" ? "LEFT" : "USED",
+    color: riskColor(used, accent)
+  };
+}
+
 function bar(label: string, window: UsageWindow | undefined, mode: BarMode, y: number, accent: string): string {
   if (!window) {
     return `<text x="14" y="${y + 17}" font-family="Arial,sans-serif" font-size="12" fill="#7f8795">${label} —</text>`;
@@ -81,7 +174,7 @@ function bar(label: string, window: UsageWindow | undefined, mode: BarMode, y: n
   const value = Math.round(visualPercent);
   const width = 116 * (visualPercent / 100);
   const reset = formatReset(window.resetsAt);
-  const fill = used >= 90 ? "#ff6b6b" : used >= 75 ? "#ffca66" : accent;
+  const fill = riskColor(used, accent);
   const qualifier = mode === "depleting" ? "LEFT" : "USED";
 
   return `<text x="14" y="${y}" font-family="Arial,sans-serif" font-size="10" font-weight="700" fill="#c8cdd6">${label} ${qualifier}</text>
@@ -89,6 +182,10 @@ function bar(label: string, window: UsageWindow | undefined, mode: BarMode, y: n
   <rect x="14" y="${y + 8}" width="116" height="10" rx="5" fill="#30343d"/>
   <rect x="14" y="${y + 8}" width="${width}" height="10" rx="5" fill="${fill}"/>
   <text x="14" y="${y + 31}" font-family="Arial,sans-serif" font-size="9" fill="#7f8795">reset ${reset}</text>`;
+}
+
+function riskColor(usedPercent: number, accent: string): string {
+  return usedPercent >= 90 ? "#ff6b6b" : usedPercent >= 75 ? "#ffca66" : accent;
 }
 
 function shell(label: string, accent: string, headline: string, detail?: string): string {
