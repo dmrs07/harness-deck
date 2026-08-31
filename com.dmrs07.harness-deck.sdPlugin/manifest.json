@@ -45,6 +45,22 @@
       "States": [{ "Image": "imgs/claude" }]
     },
     {
+      "UUID": "com.dmrs07.harness-deck.codex-strip",
+      "Name": "Codex Usage Strip",
+      "Tooltip": "Render one segment of a Codex usage bar spanning multiple keys",
+      "Icon": "imgs/codex",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/codex" }]
+    },
+    {
+      "UUID": "com.dmrs07.harness-deck.claude-strip",
+      "Name": "Claude Usage Strip",
+      "Tooltip": "Render one segment of a Claude usage bar spanning multiple keys",
+      "Icon": "imgs/claude",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/claude" }]
+    },
+    {
       "UUID": "com.dmrs07.harness-deck.combined",
       "Name": "AI Usage",
       "Tooltip": "Show the most constrained AI harness",
