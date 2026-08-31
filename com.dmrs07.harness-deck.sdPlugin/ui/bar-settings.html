@@ -5,61 +5,65 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Harness Deck bar settings</title>
   <style>
-    :root {
-      color-scheme: dark;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #2b2b2b;
-      color: #e8e8e8;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 14px; font-size: 12px; }
-    .field { margin-bottom: 16px; }
-    label { display: block; margin-bottom: 6px; color: #cfcfcf; font-weight: 600; }
-    select {
-      width: 100%;
-      height: 30px;
-      border: 1px solid #555;
-      border-radius: 4px;
-      background: #1f1f1f;
-      color: #f4f4f4;
-      padding: 0 8px;
-    }
-    .hint { margin-top: 5px; color: #9b9b9b; line-height: 1.35; }
-    .preview-title { margin: 18px 0 8px; color: #cfcfcf; font-weight: 600; }
-    .preview {
-      border: 1px solid #484848;
-      border-radius: 8px;
-      background: #202124;
-      padding: 10px;
-    }
-    .row + .row { margin-top: 11px; }
-    .row-head { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px; }
-    .track { height: 8px; border-radius: 4px; overflow: hidden; background: #3a3d44; }
-    .fill { height: 100%; border-radius: inherit; background: #76e6a6; transition: width 120ms ease; }
-    .legend { margin-top: 12px; color: #8e8e8e; font-size: 10px; line-height: 1.4; }
+    :root { color-scheme: dark; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#2b2b2b; color:#e8e8e8; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:14px; font-size:12px; }
+    .field { margin-bottom:16px; }
+    label { display:block; margin-bottom:6px; color:#cfcfcf; font-weight:600; }
+    select,input { width:100%; height:30px; border:1px solid #555; border-radius:4px; background:#1f1f1f; color:#f4f4f4; padding:0 8px; }
+    .hint { margin-top:5px; color:#9b9b9b; line-height:1.35; }
+    .strip-only { display:none; }
+    body.strip .strip-only { display:block; }
+    .preview-title { margin:18px 0 8px; color:#cfcfcf; font-weight:600; }
+    .preview { border:1px solid #484848; border-radius:8px; background:#202124; padding:10px; }
+    .row + .row { margin-top:11px; }
+    .row-head { display:flex; justify-content:space-between; margin-bottom:5px; font-size:11px; }
+    .track { height:8px; border-radius:4px; overflow:hidden; background:#3a3d44; }
+    .fill { height:100%; border-radius:inherit; background:#76e6a6; transition:width 120ms ease; }
+    .strip-preview { display:none; gap:4px; height:72px; }
+    body.strip .normal-preview { display:none; }
+    body.strip .strip-preview { display:flex; }
+    .segment { position:relative; flex:1; min-width:0; background:#292d35; overflow:hidden; border-radius:5px; border:1px solid #444; }
+    .segment-main-fill { position:absolute; inset:0 auto 12px 0; background:#76e6a6; opacity:.88; }
+    .segment-week-track { position:absolute; left:0; right:0; bottom:0; height:9px; background:#3a3d44; }
+    .segment-week-fill { position:absolute; left:0; bottom:0; height:9px; background:#76e6a6; }
+    .strip-value { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:2; font-size:16px; font-weight:800; text-shadow:0 1px 2px #000; }
+    .legend { margin-top:12px; color:#8e8e8e; font-size:10px; line-height:1.4; }
   </style>
 </head>
 <body>
+  <div class="field strip-only">
+    <label for="stripSegments">Keys in strip (N)</label>
+    <input id="stripSegments" type="number" min="1" max="8" step="1" data-number-setting="stripSegments" value="5" />
+    <div class="hint">For a 15-key Stream Deck, use 5 to occupy one complete row.</div>
+  </div>
+
+  <div class="field strip-only">
+    <label for="stripStartColumn">Start column</label>
+    <input id="stripStartColumn" type="number" min="0" max="7" step="1" data-number-setting="stripStartColumn" value="0" />
+    <div class="hint">Columns are zero-based. First row across all five keys: start 0, N = 5.</div>
+  </div>
+
   <div class="field">
     <label for="fiveHourMode">5-hour bar</label>
-    <select id="fiveHourMode" data-setting="fiveHourMode">
+    <select id="fiveHourMode" data-mode-setting="fiveHourMode">
       <option value="completing">Completing — fills as quota is used</option>
       <option value="depleting">Depleting — empties as quota is used</option>
     </select>
-    <div class="hint">Completing shows % used. Depleting shows % remaining.</div>
+    <div class="hint">In Strip mode this is the large bar occupying almost the full key height.</div>
   </div>
 
   <div class="field">
     <label for="sevenDayMode">7-day bar</label>
-    <select id="sevenDayMode" data-setting="sevenDayMode">
+    <select id="sevenDayMode" data-mode-setting="sevenDayMode">
       <option value="completing">Completing — fills as quota is used</option>
       <option value="depleting">Depleting — empties as quota is used</option>
     </select>
-    <div class="hint">Configured independently from the 5-hour window.</div>
+    <div class="hint">In Strip mode this becomes the thin weekly rail at the bottom.</div>
   </div>
 
   <div class="preview-title">Preview</div>
-  <div class="preview">
+  <div class="preview normal-preview">
     <div class="row" data-preview="fiveHourMode" data-used="42">
       <div class="row-head"><span>5H <span class="qualifier"></span></span><strong class="value"></strong></div>
       <div class="track"><div class="fill"></div></div>
@@ -69,62 +73,98 @@
       <div class="track"><div class="fill"></div></div>
     </div>
   </div>
-  <div class="legend">The danger color still follows quota consumed, so a nearly empty depleting bar becomes amber/red near the limit.</div>
+  <div class="preview strip-only">
+    <div class="strip-preview" id="stripPreview"></div>
+  </div>
+  <div class="legend" id="legend">The danger color still follows quota consumed, so a nearly empty depleting bar becomes amber/red near the limit.</div>
 
   <script>
     let socket;
     let action;
     let context;
     let settings = {};
+    let isStrip = false;
 
     const normalizeMode = (value) => value === "depleting" ? "depleting" : "completing";
+    const asInt = (value, fallback, min, max) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : fallback;
+    };
 
     function applySettings(next) {
       settings = { ...next };
-      document.querySelectorAll("[data-setting]").forEach((element) => {
-        const key = element.dataset.setting;
-        element.value = normalizeMode(settings[key]);
+      document.querySelectorAll("[data-mode-setting]").forEach((element) => {
+        element.value = normalizeMode(settings[element.dataset.modeSetting]);
+      });
+      document.querySelectorAll("[data-number-setting]").forEach((element) => {
+        const key = element.dataset.numberSetting;
+        const fallback = key === "stripSegments" ? 5 : 0;
+        element.value = asInt(settings[key], fallback, Number(element.min), Number(element.max));
       });
       renderPreview();
     }
 
     function persist(key, value) {
-      settings = { ...settings, [key]: normalizeMode(value) };
+      const nextValue = key === "fiveHourMode" || key === "sevenDayMode"
+        ? normalizeMode(value)
+        : asInt(value, key === "stripSegments" ? 5 : 0, key === "stripSegments" ? 1 : 0, 8);
+      settings = { ...settings, [key]: nextValue };
       renderPreview();
       if (!socket || socket.readyState !== WebSocket.OPEN) return;
-      socket.send(JSON.stringify({
-        event: "setSettings",
-        action,
-        context,
-        payload: settings
-      }));
+      socket.send(JSON.stringify({ event:"setSettings", action, context, payload:settings }));
+    }
+
+    function shownPercent(used, mode) {
+      return normalizeMode(mode) === "depleting" ? 100 - used : used;
     }
 
     function renderPreview() {
       document.querySelectorAll("[data-preview]").forEach((row) => {
         const mode = normalizeMode(settings[row.dataset.preview]);
-        const used = Number(row.dataset.used);
-        const shown = mode === "depleting" ? 100 - used : used;
+        const shown = shownPercent(Number(row.dataset.used), mode);
         row.querySelector(".qualifier").textContent = mode === "depleting" ? "LEFT" : "USED";
         row.querySelector(".value").textContent = `${Math.round(shown)}%`;
         row.querySelector(".fill").style.width = `${shown}%`;
       });
+
+      if (!isStrip) return;
+      const segments = asInt(settings.stripSegments, 5, 1, 8);
+      const five = shownPercent(42, settings.fiveHourMode);
+      const seven = shownPercent(68, settings.sevenDayMode);
+      const preview = document.getElementById("stripPreview");
+      preview.innerHTML = "";
+      for (let i = 0; i < segments; i += 1) {
+        const start = i * 100 / segments;
+        const end = (i + 1) * 100 / segments;
+        const localFill = Math.max(0, Math.min(100, (five - start) / (end - start) * 100));
+        const localWeekly = Math.max(0, Math.min(100, (seven - start) / (end - start) * 100));
+        const segment = document.createElement("div");
+        segment.className = "segment";
+        segment.innerHTML = `<div class="segment-main-fill" style="width:${localFill}%"></div><div class="segment-week-track"></div><div class="segment-week-fill" style="width:${localWeekly}%"></div>${i === Math.floor((segments - 1) / 2) ? `<div class="strip-value">${Math.round(five)}%</div>` : ""}`;
+        preview.appendChild(segment);
+      }
     }
 
-    document.querySelectorAll("[data-setting]").forEach((element) => {
-      element.addEventListener("change", () => persist(element.dataset.setting, element.value));
+    document.querySelectorAll("[data-mode-setting]").forEach((element) => {
+      element.addEventListener("change", () => persist(element.dataset.modeSetting, element.value));
+    });
+    document.querySelectorAll("[data-number-setting]").forEach((element) => {
+      element.addEventListener("change", () => persist(element.dataset.numberSetting, element.value));
     });
 
     window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, _info, actionInfo) => {
       const initial = JSON.parse(actionInfo || "{}");
       action = initial.action;
       context = initial.context;
+      isStrip = typeof action === "string" && action.endsWith("-strip");
+      document.body.classList.toggle("strip", isStrip);
+      document.getElementById("legend").textContent = isStrip
+        ? "Place the Strip action on each key in the configured column range. Defaults (start 0, N=5) make the first row of a 15-key deck work immediately."
+        : "The danger color still follows quota consumed, so a nearly empty depleting bar becomes amber/red near the limit.";
       applySettings(initial.payload?.settings || {});
 
       socket = new WebSocket(`ws://127.0.0.1:${port}`);
-      socket.onopen = () => {
-        socket.send(JSON.stringify({ event: registerEvent, uuid }));
-      };
+      socket.onopen = () => socket.send(JSON.stringify({ event:registerEvent, uuid }));
       socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
         if (message.event === "didReceiveSettings" && (!message.context || message.context === context)) {
