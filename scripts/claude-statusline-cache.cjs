@@ -9,35 +9,33 @@ process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw || "{}");
     const rateLimits = input.rate_limits || {};
+    const freshFiveHour = normalize(rateLimits.five_hour);
+    const freshSevenDay = normalize(rateLimits.seven_day);
+
     const dir = path.join(os.homedir(), ".harness-deck");
     const file = path.join(dir, "claude-usage.json");
+    fs.mkdirSync(dir, { recursive: true });
 
-    const incoming = {
-      fiveHour: normalize(rateLimits.five_hour),
-      sevenDay: normalize(rateLimits.seven_day)
-    };
+    const previous = readPrevious(file);
+    const now = Date.now();
+    const fiveHour = freshFiveHour ? { ...freshFiveHour, updatedAt: now } : previous.fiveHour;
+    const sevenDay = freshSevenDay ? { ...freshSevenDay, updatedAt: now } : previous.sevenDay;
 
-    const previous = readCache(file);
-    const hasIncomingLimits = Boolean(incoming.fiveHour || incoming.sevenDay);
-    const payload = hasIncomingLimits
-      ? {
-          updatedAt: Date.now(),
-          fiveHour: incoming.fiveHour || previous.fiveHour,
-          sevenDay: incoming.sevenDay || previous.sevenDay
-        }
-      : previous;
-
-    if (hasIncomingLimits) {
+    if (freshFiveHour || freshSevenDay) {
+      const payload = {
+        updatedAt: now,
+        fiveHour,
+        sevenDay
+      };
       const tmp = `${file}.tmp`;
-      fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(tmp, JSON.stringify(payload));
       fs.renameSync(tmp, file);
     }
 
     const model = input.model && (input.model.display_name || input.model.id) || "Claude";
     const segments = [
-      format("5h", payload.fiveHour),
-      format("7d", payload.sevenDay)
+      format("5h", freshFiveHour || previous.fiveHour),
+      format("7d", freshSevenDay || previous.sevenDay)
     ].filter(Boolean);
     process.stdout.write(segments.length ? `[${model}] | ${segments.join(" ")}` : `[${model}]`);
   } catch {
@@ -45,16 +43,12 @@ process.stdin.on("end", () => {
   }
 });
 
-function readCache(file) {
+function readPrevious(file) {
   try {
     const value = JSON.parse(fs.readFileSync(file, "utf8"));
-    return {
-      updatedAt: typeof value.updatedAt === "number" ? value.updatedAt : 0,
-      fiveHour: normalizeCached(value.fiveHour),
-      sevenDay: normalizeCached(value.sevenDay)
-    };
+    return value && typeof value === "object" ? value : {};
   } catch {
-    return { updatedAt: 0 };
+    return {};
   }
 }
 
@@ -66,14 +60,6 @@ function normalize(value) {
   };
 }
 
-function normalizeCached(value) {
-  if (!value || typeof value.usedPercent !== "number") return undefined;
-  return {
-    usedPercent: Math.max(0, Math.min(100, value.usedPercent)),
-    resetsAt: typeof value.resetsAt === "number" ? value.resetsAt : undefined
-  };
-}
-
 function format(label, value) {
-  return value ? `${label}: ${Math.round(value.usedPercent)}%` : "";
+  return value && typeof value.usedPercent === "number" ? `${label}: ${Math.round(value.usedPercent)}%` : "";
 }
