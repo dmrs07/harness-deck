@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@elgato/cli": "^1.7.4",
+    "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-typescript": "^12.3.0",
     "@tsconfig/node24": "^24.0.4",
