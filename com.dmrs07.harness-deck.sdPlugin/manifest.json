@@ -9,7 +9,6 @@
   "CategoryIcon": "imgs/plugin",
   "Icon": "imgs/plugin",
   "CodePath": "bin/plugin.js",
-  "PropertyInspectorPath": "ui/bar-settings.html",
   "SDKVersion": 3,
   "Software": {
     "MinimumVersion": "7.1"
@@ -33,6 +32,7 @@
       "Name": "Codex Usage",
       "Tooltip": "Show Codex 5-hour and weekly usage",
       "Icon": "imgs/codex",
+      "PropertyInspectorPath": "ui/bar-settings.html",
       "Controllers": ["Keypad"],
       "States": [{ "Image": "imgs/codex" }]
     },
@@ -41,6 +41,7 @@
       "Name": "Claude Usage",
       "Tooltip": "Show Claude Code 5-hour and weekly usage",
       "Icon": "imgs/claude",
+      "PropertyInspectorPath": "ui/bar-settings.html",
       "Controllers": ["Keypad"],
       "States": [{ "Image": "imgs/claude" }]
     },
@@ -49,6 +50,7 @@
       "Name": "Codex Usage Strip",
       "Tooltip": "Render one segment of a Codex usage bar spanning multiple keys",
       "Icon": "imgs/codex",
+      "PropertyInspectorPath": "ui/bar-settings.html",
       "Controllers": ["Keypad"],
       "States": [{ "Image": "imgs/codex" }]
     },
@@ -57,6 +59,7 @@
       "Name": "Claude Usage Strip",
       "Tooltip": "Render one segment of a Claude usage bar spanning multiple keys",
       "Icon": "imgs/claude",
+      "PropertyInspectorPath": "ui/bar-settings.html",
       "Controllers": ["Keypad"],
       "States": [{ "Image": "imgs/claude" }]
     },
@@ -65,6 +68,7 @@
       "Name": "AI Usage",
       "Tooltip": "Show the most constrained AI harness",
       "Icon": "imgs/plugin",
+      "PropertyInspectorPath": "ui/bar-settings.html",
       "Controllers": ["Keypad"],
       "States": [{ "Image": "imgs/plugin" }]
     }
