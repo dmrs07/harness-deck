@@ -232,7 +232,7 @@
     window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, _info, actionInfo) => {
       const initial = JSON.parse(actionInfo || "{}");
       action = initial.action;
-      context = initial.context;
+      context = uuid;
       isStrip = typeof action === "string" && action.endsWith("-strip");
       document.body.classList.toggle("strip", isStrip);
       document.getElementById("legend").textContent = isStrip
